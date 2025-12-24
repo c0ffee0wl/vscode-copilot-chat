@@ -66,7 +66,7 @@ export class ServerPoweredInlineEditProvider implements IStatelessNextEditProvid
 		let r: Response;
 		try {
 			// LOCAL MODE: Use local LLM server
-			r = await fetch('http://127.0.0.1:8765/v1/chat/completions', {
+			r = await fetch('http://127.0.0.1:8777/v1/chat/completions', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'

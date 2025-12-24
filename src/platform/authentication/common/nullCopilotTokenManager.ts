@@ -34,9 +34,9 @@ export class NullCopilotTokenManager implements ICopilotTokenManager {
 			telemetry: 'disabled', // Disable telemetry
 			copilotignore_enabled: true,
 			endpoints: {
-				api: 'http://127.0.0.1:8765',
+				api: 'http://127.0.0.1:8777',
 				telemetry: '',
-				proxy: 'http://127.0.0.1:8765',
+				proxy: 'http://127.0.0.1:8777',
 			},
 			chat_enabled: true,
 			individual: false, // Not individual = has more features

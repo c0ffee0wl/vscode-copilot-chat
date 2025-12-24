@@ -17,15 +17,15 @@ export class NullCAPIClientImpl implements ICAPIClientService {
 
 	// Return local server URLs
 	get proxyBaseURL(): string {
-		return 'http://127.0.0.1:8765';
+		return 'http://127.0.0.1:8777';
 	}
 
 	get dotcomAPIURL(): string {
-		return 'http://127.0.0.1:8765';
+		return 'http://127.0.0.1:8777';
 	}
 
 	get capiPingURL(): string {
-		return 'http://127.0.0.1:8765/health';
+		return 'http://127.0.0.1:8777/health';
 	}
 
 	get copilotTelemetryURL(): string {

@@ -152,7 +152,7 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 	builder.define(IAuthenticationService, new NullAuthenticationService());
 
 	// LOCAL MODE: Use local endpoint provider pointing to local LLM server
-	const LOCAL_LLM_SERVER_URL = 'http://127.0.0.1:8765';
+	const LOCAL_LLM_SERVER_URL = 'http://127.0.0.1:8777';
 	builder.define(IEndpointProvider, new SyncDescriptor(LocalEndpointProvider, [LOCAL_LLM_SERVER_URL]));
 
 	// LOCAL MODE: Use null ignore service - no remote content exclusion

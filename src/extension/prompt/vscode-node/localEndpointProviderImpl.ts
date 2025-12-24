@@ -29,7 +29,7 @@ export class LocalEndpointProvider implements IEndpointProvider {
 		@ITokenizerProvider private readonly _tokenizerProvider: ITokenizerProvider,
 		@ILogService private readonly _logService: ILogService
 	) {
-		this._serverUrl = serverUrl || 'http://127.0.0.1:8765';
+		this._serverUrl = serverUrl || 'http://127.0.0.1:8777';
 		this._logService.info(`LocalEndpointProvider initialized with server URL: ${this._serverUrl}`);
 	}
 
