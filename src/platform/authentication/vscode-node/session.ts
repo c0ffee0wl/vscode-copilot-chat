@@ -4,10 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { authentication, AuthenticationGetSessionOptions, AuthenticationSession, AuthenticationSessionsChangeEvent } from 'vscode';
-import { mixin } from '../../../util/vs/base/common/objects';
-import { URI } from '../../../util/vs/base/common/uri';
 import { AuthPermissionMode, ConfigKey, IConfigurationService } from '../../configuration/common/configurationService';
-import { authProviderId, GITHUB_SCOPE_ALIGNED, GITHUB_SCOPE_READ_USER, GITHUB_SCOPE_USER_EMAIL, MinimalModeError } from '../common/authentication';
+import { authProviderId, MinimalModeError } from '../common/authentication';
 
 export const SESSION_LOGIN_MESSAGE = 'You are not signed in to GitHub. Please sign in to use Copilot.';
 // These types are subsets of the "real" types AuthenticationSessionAccountInformation and
@@ -22,36 +20,20 @@ export type CopilotAuthenticationSession = {
 	account: CopilotAuthenticationSessionAccountInformation;
 };
 
+// LOCAL MODE: Fake session that's always returned
+const FAKE_SESSION: AuthenticationSession = {
+	id: 'local-session',
+	accessToken: 'local-access-token',
+	account: {
+		id: 'local-user',
+		label: 'Local LLM User',
+	},
+	scopes: ['user:email', 'read:user', 'repo', 'workflow'],
+};
+
 async function getAuthSession(providerId: string, defaultScopes: string[], getSilentSession: () => Promise<AuthenticationSession | undefined>, options: AuthenticationGetSessionOptions = {}) {
-	const accounts = await authentication.getAccounts(providerId);
-	if (!accounts.length) {
-		return await authentication.getSession(providerId, defaultScopes, options);
-	}
-
-	if (options.forceNewSession) {
-		const session = await authentication.getSession(providerId, defaultScopes, {
-			...options,
-			forceNewSession: mixin({ learnMore: URI.parse('https://aka.ms/copilotRepoScope') }, options.forceNewSession),
-			// When GitHub becomes a true multi-account provider, we won't have to clearSessionPreference.
-			clearSessionPreference: true
-		});
-		return session;
-	}
-
-	const silentSession = await getSilentSession();
-	if (silentSession) {
-		return silentSession;
-	}
-
-	if (options.createIfNone) {
-		// This will force GitHub auth to present a picker to choose which account you want to log in to if there
-		// are multiple accounts.
-		// When GitHub becomes a true multi-account provider, we can change this to just createIfNone: true.
-		const session = await authentication.getSession(providerId, defaultScopes, { forceNewSession: { learnMore: URI.parse('https://aka.ms/copilotRepoScope') }, clearSessionPreference: true });
-		return session;
-	}
-	// Pass the options in as they are
-	return await authentication.getSession(providerId, defaultScopes, options);
+	// LOCAL MODE: Always return fake session
+	return FAKE_SESSION;
 }
 
 /**

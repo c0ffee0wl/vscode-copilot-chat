@@ -147,11 +147,7 @@ async function main() {
 	await createCopilotCliSharpShim();
 	await copyCopilotCliWorkerFiles();
 
-	// Check if the base cache file exists
-	const baseCachePath = path.join('test', 'simulation', 'cache', 'base.sqlite');
-	if (!fs.existsSync(baseCachePath)) {
-		throw new Error(`Base cache file does not exist at ${baseCachePath}. Please ensure that you have git lfs installed and initialized before the repository is cloned.`);
-	}
+	// LOCAL MODE: Removed git-lfs cache check - not needed for local LLM usage
 
 	await copyStaticAssets([
 		`node_modules/@anthropic-ai/claude-agent-sdk/cli.js`,

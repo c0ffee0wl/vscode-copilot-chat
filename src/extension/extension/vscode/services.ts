@@ -9,7 +9,8 @@ import { AuthenticationChatUpgradeService } from '../../../platform/authenticati
 import { CopilotTokenStore, ICopilotTokenStore } from '../../../platform/authentication/common/copilotTokenStore';
 import { BlockedExtensionService, IBlockedExtensionService } from '../../../platform/chat/common/blockedExtensionService';
 import { IChatQuotaService } from '../../../platform/chat/common/chatQuotaService';
-import { ChatQuotaService } from '../../../platform/chat/common/chatQuotaServiceImpl';
+// LOCAL MODE: Import null quota service
+import { NullChatQuotaService } from '../../../platform/chat/common/nullChatQuotaService';
 import { IChatSessionService } from '../../../platform/chat/common/chatSessionService';
 import { IConversationOptions } from '../../../platform/chat/common/conversationOptions';
 import { IInteractionService, InteractionService } from '../../../platform/chat/common/interactionService';
@@ -72,10 +73,8 @@ import { IRemoteRepositoriesService, RemoteRepositoriesService } from '../../../
 import { IReviewService } from '../../../platform/review/common/reviewService';
 import { ReviewServiceImpl } from '../../../platform/review/vscode/reviewServiceImpl';
 import { ISimulationTestContext, NulSimulationTestContext } from '../../../platform/simulationTestContext/common/simulationTestContext';
-import { ISnippyService } from '../../../platform/snippy/common/snippyService';
-import { SnippyService } from '../../../platform/snippy/common/snippyServiceImpl';
-import { ISurveyService } from '../../../platform/survey/common/surveyService';
-import { SurveyService } from '../../../platform/survey/vscode/surveyServiceImpl';
+import { ISnippyService, NullSnippyService } from '../../../platform/snippy/common/snippyService';
+import { ISurveyService, NullSurveyService } from '../../../platform/survey/common/surveyService';
 import { ITabsAndEditorsService } from '../../../platform/tabs/common/tabsAndEditorsService';
 import { TabsAndEditorsServiceImpl } from '../../../platform/tabs/vscode/tabsAndEditorsServiceImpl';
 import { ITasksService } from '../../../platform/tasks/common/tasksService';
@@ -140,7 +139,8 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 	builder.define(IChatSessionService, new SyncDescriptor(ChatSessionService));
 	builder.define(IConfigurationService, new SyncDescriptor(ConfigurationServiceImpl));
 	builder.define(ILogService, new SyncDescriptor(LogServiceImpl, [[new NewOutputChannelLogTarget(extensionContext)]]));
-	builder.define(IChatQuotaService, new SyncDescriptor(ChatQuotaService));
+	// LOCAL MODE: Use null quota service - no subscription limits
+	builder.define(IChatQuotaService, new NullChatQuotaService());
 	builder.define(ITasksService, new SyncDescriptor(TasksService));
 	builder.define(IGitExtensionService, new SyncDescriptor(GitExtensionServiceImpl));
 	builder.define(IGitService, new SyncDescriptor(GitServiceImpl));
@@ -159,12 +159,14 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 	builder.define(IMultiFileEditInternalTelemetryService, new SyncDescriptor(MultiFileEditInternalTelemetryService));
 	builder.define(ICustomInstructionsService, new SyncDescriptor(CustomInstructionsService));
 	builder.define(ILaunchConfigService, new SyncDescriptor(LaunchConfigService));
-	builder.define(ISurveyService, new SyncDescriptor(SurveyService));
+	// LOCAL MODE: Disable survey service - no phone-home
+	builder.define(ISurveyService, new NullSurveyService());
 	builder.define(IEditSurvivalTrackerService, new SyncDescriptor(EditSurvivalTrackerService));
 	builder.define(IPromptPathRepresentationService, new SyncDescriptor(PromptPathRepresentationService));
 	builder.define(IPromptsService, new SyncDescriptor(PromptsServiceImpl));
 	builder.define(IReleaseNotesService, new SyncDescriptor(ReleaseNotesService));
-	builder.define(ISnippyService, new SyncDescriptor(SnippyService));
+	// LOCAL MODE: Disable snippy service - requires CAPI
+	builder.define(ISnippyService, new NullSnippyService());
 	builder.define(IInteractiveSessionService, new InteractiveSessionServiceImpl());
 	builder.define(IAuthenticationChatUpgradeService, new SyncDescriptor(AuthenticationChatUpgradeService));
 	builder.define(IEmbeddingsComputer, new SyncDescriptor(RemoteEmbeddingsComputer));

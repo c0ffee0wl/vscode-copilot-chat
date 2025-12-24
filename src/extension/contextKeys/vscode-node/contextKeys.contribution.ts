@@ -4,14 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 import { commands, extensions, window } from 'vscode';
 import { IAuthenticationService, MinimalModeError } from '../../../platform/authentication/common/authentication';
-import { ChatDisabledError, ContactSupportError, EnterpriseManagedError, NotSignedUpError, SubscriptionExpiredError } from '../../../platform/authentication/vscode-node/copilotTokenManager';
-import { SESSION_LOGIN_MESSAGE } from '../../../platform/authentication/vscode-node/session';
 import { ConfigKey, IConfigurationService } from '../../../platform/configuration/common/configurationService';
 import { IEnvService } from '../../../platform/env/common/envService';
 import { ILogService } from '../../../platform/log/common/logService';
 import { IFetcherService } from '../../../platform/networking/common/fetcherService';
 import { ITelemetryService } from '../../../platform/telemetry/common/telemetry';
-import { TelemetryData } from '../../../platform/telemetry/common/telemetryData';
 import { Disposable } from '../../../util/vs/base/common/lifecycle';
 import { autorun } from '../../../util/vs/base/common/observableInternal';
 import { GHPR_EXTENSION_ID } from '../../chatSessions/vscode/chatSessionsUriHandler';
@@ -54,6 +51,9 @@ export class ContextKeysContribution extends Disposable {
 		@IEnvService private readonly _envService: IEnvService
 	) {
 		super();
+
+		// LOCAL MODE: Force activate immediately without auth check
+		commands.executeCommand('setContext', welcomeViewContextKeys.Activated, true);
 
 		void this._inspectContext().catch(console.error);
 		void this._updatePermissiveSessionContext().catch(console.error);
@@ -115,43 +115,21 @@ export class ContextKeysContribution extends Disposable {
 		this._logService.debug(`[context keys] Updating context keys.`);
 		this._cancelPendingOfflineCheck();
 		const allKeys = Object.values(welcomeViewContextKeys);
-		let error: unknown | undefined = undefined;
-		let key: string | undefined;
+
+		// LOCAL MODE: Always activate, ignore auth errors
+		const key = welcomeViewContextKeys.Activated;
+
+		// Try to get token but don't fail if it doesn't work
 		try {
 			await this._authenticationService.getCopilotToken();
-			key = welcomeViewContextKeys.Activated;
 		} catch (e: any) {
-			error = e;
-			const reason = e.message || e;
-			const data = TelemetryData.createAndMarkAsIssued({ reason });
-			this._telemetryService.sendGHTelemetryErrorEvent('activationFailed', data.properties, data.measurements);
-			const message =
-				reason === 'GitHubLoginFailed'
-					? SESSION_LOGIN_MESSAGE
-					: `GitHub Copilot could not connect to server. Extension activation failed: "${reason}"`;
-			this._logService.error(message);
+			this._logService.debug(`[context keys] Token retrieval failed (ignored in local mode): ${e.message}`);
 		}
 
-		if (error instanceof NotSignedUpError) {
-			key = welcomeViewContextKeys.IndividualDisabled;
-		} else if (error instanceof SubscriptionExpiredError) {
-			key = welcomeViewContextKeys.IndividualExpired;
-		} else if (error instanceof EnterpriseManagedError) {
-			key = welcomeViewContextKeys.EnterpriseDisabled;
-		} else if (error instanceof ContactSupportError) {
-			key = welcomeViewContextKeys.ContactSupport;
-		} else if (error instanceof ChatDisabledError) {
-			key = welcomeViewContextKeys.CopilotChatDisabled;
-		} else if (this._fetcherService.isFetcherError(error)) {
-			key = welcomeViewContextKeys.Offline;
-			this._scheduleOfflineCheck();
-		}
+		// Always set Activated to true
+		commands.executeCommand('setContext', key, true);
 
-		if (key) {
-			commands.executeCommand('setContext', key, true);
-		}
-
-		// Unset all other context keys
+		// Unset all error context keys
 		for (const contextKey of allKeys) {
 			if (contextKey !== key) {
 				commands.executeCommand('setContext', contextKey, false);

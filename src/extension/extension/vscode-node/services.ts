@@ -3,13 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtensionContext, ExtensionMode, env } from 'vscode';
+import { ExtensionContext, ExtensionMode } from 'vscode';
 import { IAuthenticationService } from '../../../platform/authentication/common/authentication';
 import { ICopilotTokenManager } from '../../../platform/authentication/common/copilotTokenManager';
-import { StaticGitHubAuthenticationService } from '../../../platform/authentication/common/staticGitHubAuthenticationService';
-import { createStaticGitHubTokenProvider, getOrCreateTestingCopilotTokenManager } from '../../../platform/authentication/node/copilotTokenManager';
-import { AuthenticationService } from '../../../platform/authentication/vscode-node/authenticationService';
-import { VSCodeCopilotTokenManager } from '../../../platform/authentication/vscode-node/copilotTokenManager';
+// LOCAL MODE: Import null authentication services
+import { NullAuthenticationService } from '../../../platform/authentication/common/nullAuthenticationService';
+import { NullCopilotTokenManager } from '../../../platform/authentication/common/nullCopilotTokenManager';
 import { IChatAgentService } from '../../../platform/chat/common/chatAgents';
 import { IChatMLFetcher } from '../../../platform/chat/common/chatMLFetcher';
 import { IChunkingEndpointClient } from '../../../platform/chunking/common/chunkingEndpointClient';
@@ -21,9 +20,12 @@ import { DiffServiceImpl } from '../../../platform/diff/node/diffServiceImpl';
 import { ICAPIClientService } from '../../../platform/endpoint/common/capiClient';
 import { IDomainService } from '../../../platform/endpoint/common/domainService';
 import { IEndpointProvider } from '../../../platform/endpoint/common/endpointProvider';
-import { AutomodeService, IAutomodeService } from '../../../platform/endpoint/node/automodeService';
-import { CAPIClientImpl } from '../../../platform/endpoint/node/capiClientImpl';
+import { IAutomodeService } from '../../../platform/endpoint/node/automodeService';
 import { DomainService } from '../../../platform/endpoint/node/domainServiceImpl';
+// LOCAL MODE: Import null automode service
+import { NullAutomodeService } from '../../../platform/endpoint/node/nullAutomodeService';
+// LOCAL MODE: Import null CAPI client
+import { NullCAPIClientImpl } from '../../../platform/endpoint/node/nullCapiClientImpl';
 import { INativeEnvService, isScenarioAutomation } from '../../../platform/env/common/envService';
 import { NativeEnvServiceImpl } from '../../../platform/env/vscode-node/nativeEnvServiceImpl';
 import { IGitCommitMessageService } from '../../../platform/git/common/gitCommitMessageService';
@@ -61,9 +63,7 @@ import { ISettingsEditorSearchService } from '../../../platform/settingsEditor/c
 import { IExperimentationService, NullExperimentationService } from '../../../platform/telemetry/common/nullExperimentationService';
 import { NullTelemetryService } from '../../../platform/telemetry/common/nullTelemetryService';
 import { ITelemetryService, ITelemetryUserConfig, TelemetryUserConfigImpl } from '../../../platform/telemetry/common/telemetry';
-import { APP_INSIGHTS_KEY_ENHANCED, APP_INSIGHTS_KEY_STANDARD } from '../../../platform/telemetry/node/azureInsights';
-import { MicrosoftExperimentationService } from '../../../platform/telemetry/vscode-node/microsoftExperimentationService';
-import { TelemetryService } from '../../../platform/telemetry/vscode-node/telemetryServiceImpl';
+// LOCAL MODE: Removed Azure Insights and real telemetry service imports
 import { IWorkspaceMutationManager } from '../../../platform/testing/common/workspaceMutationManager';
 import { ISetupTestsDetector, SetupTestsDetector } from '../../../platform/testing/node/setupTestDetector';
 import { ITestDepsResolver, TestDepsResolver } from '../../../platform/testing/node/testDepsResolver';
@@ -97,7 +97,8 @@ import { IFeedbackReporter } from '../../prompt/node/feedbackReporter';
 import { IPromptVariablesService } from '../../prompt/node/promptVariablesService';
 import { ITodoListContextProvider, TodoListContextProvider } from '../../prompt/node/todoListContextProvider';
 import { DevContainerConfigurationServiceImpl } from '../../prompt/vscode-node/devContainerConfigurationServiceImpl';
-import { ProductionEndpointProvider } from '../../prompt/vscode-node/endpointProviderImpl';
+// LOCAL MODE: Import local endpoint provider
+import { LocalEndpointProvider } from '../../prompt/vscode-node/localEndpointProviderImpl';
 import { GitCommitMessageServiceImpl } from '../../prompt/vscode-node/gitCommitMessageServiceImpl';
 import { GitDiffService } from '../../prompt/vscode-node/gitDiffService';
 import { PromptVariablesServiceImpl } from '../../prompt/vscode-node/promptVariablesService';
@@ -127,7 +128,8 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 
 	registerCommonServices(builder, extensionContext);
 
-	builder.define(IAutomodeService, new SyncDescriptor(AutomodeService));
+	// LOCAL MODE: Use null automode service
+	builder.define(IAutomodeService, new SyncDescriptor(NullAutomodeService));
 	builder.define(IConversationStore, new ConversationStore());
 	builder.define(IDiffService, new DiffServiceImpl());
 	builder.define(ITokenizerProvider, new SyncDescriptor(TokenizerProvider, [true]));
@@ -137,35 +139,24 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 
 	builder.define(IFetcherService, new SyncDescriptor(FetcherService, [undefined]));
 	builder.define(IDomainService, new SyncDescriptor(DomainService));
-	builder.define(ICAPIClientService, new SyncDescriptor(CAPIClientImpl));
+	// LOCAL MODE: Use null CAPI client - no remote CAPI calls
+	builder.define(ICAPIClientService, new NullCAPIClientImpl());
 	builder.define(IImageService, new SyncDescriptor(ImageServiceImpl));
 
 	builder.define(ITelemetryUserConfig, new SyncDescriptor(TelemetryUserConfigImpl, [undefined, undefined]));
-	const internalAIKey = extensionContext.extension.packageJSON.internalAIKey ?? '';
-	const internalLargeEventAIKey = extensionContext.extension.packageJSON.internalLargeStorageAriaKey ?? '';
-	const ariaKey = extensionContext.extension.packageJSON.ariaKey ?? '';
-	if (isTestMode || isScenarioAutomation) {
-		setupTelemetry(builder, extensionContext, internalAIKey, internalLargeEventAIKey, ariaKey);
-		// If we're in testing mode, then most code will be called from an actual test,
-		// and not from here. However, some objects will capture the `accessor` we pass
-		// here and then re-use it later. This is particularly the case for those objects
-		// which implement VSCode interfaces so can't be changed to take `accessor` in their
-		// method parameters.
-		builder.define(ICopilotTokenManager, getOrCreateTestingCopilotTokenManager(env.devDeviceId));
-	} else {
-		setupTelemetry(builder, extensionContext, internalAIKey, internalLargeEventAIKey, ariaKey);
-		builder.define(ICopilotTokenManager, new SyncDescriptor(VSCodeCopilotTokenManager));
-	}
+	// LOCAL MODE: Always use null telemetry
+	setupTelemetry(builder, extensionContext, '', '', '');
 
-	if (isScenarioAutomation) {
-		builder.define(IAuthenticationService, new SyncDescriptor(StaticGitHubAuthenticationService, [createStaticGitHubTokenProvider()]));
-		builder.define(IEndpointProvider, new SyncDescriptor(ScenarioAutomationEndpointProviderImpl, [collectFetcherTelemetry]));
-		builder.define(IIgnoreService, new SyncDescriptor(NullIgnoreService));
-	} else {
-		builder.define(IAuthenticationService, new SyncDescriptor(AuthenticationService));
-		builder.define(IEndpointProvider, new SyncDescriptor(ProductionEndpointProvider, [collectFetcherTelemetry]));
-		builder.define(IIgnoreService, new SyncDescriptor(VsCodeIgnoreService));
-	}
+	// LOCAL MODE: Always use null authentication - no GitHub login required
+	builder.define(ICopilotTokenManager, new NullCopilotTokenManager());
+	builder.define(IAuthenticationService, new NullAuthenticationService());
+
+	// LOCAL MODE: Use local endpoint provider pointing to local LLM server
+	const LOCAL_LLM_SERVER_URL = 'http://127.0.0.1:8765';
+	builder.define(IEndpointProvider, new SyncDescriptor(LocalEndpointProvider, [LOCAL_LLM_SERVER_URL]));
+
+	// LOCAL MODE: Use null ignore service - no remote content exclusion
+	builder.define(IIgnoreService, new SyncDescriptor(NullIgnoreService));
 
 	builder.define(ITestGenInfoStorage, new SyncDescriptor(TestGenInfoStorage)); // Used for test generation (/tests intent)
 	builder.define(IParserService, new SyncDescriptor(ParserServiceImpl, [/*useWorker*/ true]));
@@ -216,30 +207,13 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 	builder.define(ICopilotInlineCompletionItemProviderService, new SyncDescriptor(CopilotInlineCompletionItemProviderService));
 }
 
-function setupMSFTExperimentationService(builder: IInstantiationServiceBuilder, extensionContext: ExtensionContext) {
-	if (ExtensionMode.Production === extensionContext.extensionMode && !isScenarioAutomation) {
-		// Intitiate the experimentation service
-		builder.define(IExperimentationService, new SyncDescriptor(MicrosoftExperimentationService));
-	} else {
-		builder.define(IExperimentationService, new NullExperimentationService());
-	}
+function setupMSFTExperimentationService(builder: IInstantiationServiceBuilder, _extensionContext: ExtensionContext) {
+	// LOCAL MODE: Always use null experimentation service - no A/B testing phone-home
+	builder.define(IExperimentationService, new NullExperimentationService());
 }
 
-function setupTelemetry(builder: IInstantiationServiceBuilder, extensionContext: ExtensionContext, internalAIKey: string, internalLargeEventAIKey: string, externalAIKey: string) {
-
-	if (ExtensionMode.Production === extensionContext.extensionMode && !isScenarioAutomation) {
-		builder.define(ITelemetryService, new SyncDescriptor(TelemetryService, [
-			extensionContext.extension.packageJSON.name,
-			internalAIKey,
-			internalLargeEventAIKey,
-			externalAIKey,
-			APP_INSIGHTS_KEY_STANDARD,
-			APP_INSIGHTS_KEY_ENHANCED,
-		]));
-	} else {
-		// If we're developing or testing we don't want telemetry to be sent, so we turn it off
-		builder.define(ITelemetryService, new NullTelemetryService());
-	}
-
+function setupTelemetry(builder: IInstantiationServiceBuilder, extensionContext: ExtensionContext, _internalAIKey: string, _internalLargeEventAIKey: string, _externalAIKey: string) {
+	// LOCAL MODE: Always use null telemetry - no data sent to Microsoft/GitHub
+	builder.define(ITelemetryService, new NullTelemetryService());
 	setupMSFTExperimentationService(builder, extensionContext);
 }

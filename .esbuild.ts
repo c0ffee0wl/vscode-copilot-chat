@@ -9,8 +9,11 @@ import * as fs from 'fs';
 import { copyFile, mkdir } from 'fs/promises';
 import { glob } from 'glob';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-const REPO_ROOT = import.meta.dirname;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = __dirname;
 const isWatch = process.argv.includes('--watch');
 const isDev = process.argv.includes('--dev');
 const isPreRelease = process.argv.includes('--prerelease');
@@ -251,8 +254,8 @@ const nodeSimulationWorkbenchUIBuildOptions = {
 
 async function typeScriptServerPluginPackageJsonInstall(): Promise<void> {
 	await mkdir('./node_modules/@vscode/copilot-typescript-server-plugin', { recursive: true });
-	const source = path.join(import.meta.dirname, './src/extension/typescriptContext/serverPlugin/package.json');
-	const destination = path.join(import.meta.dirname, './node_modules/@vscode/copilot-typescript-server-plugin/package.json');
+	const source = path.join(__dirname, './src/extension/typescriptContext/serverPlugin/package.json');
+	const destination = path.join(__dirname, './node_modules/@vscode/copilot-typescript-server-plugin/package.json');
 	try {
 		await copyFile(source, destination);
 	} catch (error) {
@@ -369,7 +372,7 @@ async function main() {
 }
 
 function applyPackageJsonPatch(isPreRelease: boolean) {
-	const packagejsonPath = path.join(import.meta.dirname, './package.json');
+	const packagejsonPath = path.join(__dirname, './package.json');
 	const json = JSON.parse(fs.readFileSync(packagejsonPath).toString());
 
 	const newProps: any = {
