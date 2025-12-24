@@ -15,7 +15,7 @@ import { IDiffService } from '../../../../platform/diff/common/diffService';
 import { NotebookDocumentSnapshot } from '../../../../platform/editing/common/notebookDocumentSnapshot';
 import { TextDocumentSnapshot } from '../../../../platform/editing/common/textDocumentSnapshot';
 import { IEndpointProvider } from '../../../../platform/endpoint/common/endpointProvider';
-import { ChatEndpoint } from '../../../../platform/endpoint/node/chatEndpoint';
+import { IChatEndpoint } from '../../../../platform/networking/common/networking';
 import { Proxy4oEndpoint } from '../../../../platform/endpoint/node/proxy4oEndpoint';
 import { ProxyInstantApplyShortEndpoint } from '../../../../platform/endpoint/node/proxyInstantApplyShortEndpoint';
 import { ILogService } from '../../../../platform/log/common/logService';
@@ -278,7 +278,7 @@ interface IFullRewritePrompt {
 	readonly promptTokenCount: number;
 	readonly speculationTokenCount: number;
 
-	readonly endpoint: ChatEndpoint;
+	readonly endpoint: IChatEndpoint;
 	readonly tokenizer: ITokenizer;
 }
 
@@ -312,13 +312,25 @@ export class CodeMapper {
 		this.shortContextLimit = configurationService.getExperimentBasedConfig<number>(ConfigKey.Advanced.InstantApplyShortContextLimit, experimentationService) ?? 8000;
 	}
 
-	private async getGpt4oProxyEndpoint(): Promise<Proxy4oEndpoint> {
+	private async getGpt4oProxyEndpoint(): Promise<IChatEndpoint> {
 		await this.experimentationService.hasTreatments();
+		// LOCAL MODE: Check if we're using a local endpoint (urlOrRequestMetadata is a string URL)
+		const chatEndpoint = await this.endpointProvider.getChatEndpoint('gpt-4.1');
+		if (typeof chatEndpoint.urlOrRequestMetadata === 'string') {
+			// Local mode - use the local endpoint which supports prediction
+			return chatEndpoint;
+		}
 		return this.instantiationService.createInstance(Proxy4oEndpoint);
 	}
 
-	private async getShortIAEndpoint(): Promise<ProxyInstantApplyShortEndpoint> {
+	private async getShortIAEndpoint(): Promise<IChatEndpoint> {
 		await this.experimentationService.hasTreatments();
+		// LOCAL MODE: Check if we're using a local endpoint (urlOrRequestMetadata is a string URL)
+		const chatEndpoint = await this.endpointProvider.getChatEndpoint('gpt-4.1');
+		if (typeof chatEndpoint.urlOrRequestMetadata === 'string') {
+			// Local mode - use the local endpoint
+			return chatEndpoint;
+		}
 		return this.instantiationService.createInstance(ProxyInstantApplyShortEndpoint);
 	}
 
@@ -408,7 +420,7 @@ export class CodeMapper {
 	//#region Full file rewrite with speculation / predicted outputs
 
 	private async buildPrompt(request: ICodeMapperRequestInput, token: CancellationToken): Promise<IFullRewritePrompt> {
-		let endpoint: ChatEndpoint = await this.getGpt4oProxyEndpoint();
+		let endpoint: IChatEndpoint = await this.getGpt4oProxyEndpoint();
 		const tokenizer = this.tokenizerProvider.acquireTokenizer(endpoint);
 		const requestId = generateUuid();
 
@@ -664,7 +676,7 @@ export class CodeMapper {
 		return res;
 	}
 
-	private async fetchAndContinueOnLengthError(endpoint: ChatEndpoint, promptMessages: Raw.ChatMessage[], speculation: string, request: ICodeMapperRequestInput, resultStream: MappedEditsResponseStream, token: CancellationToken, applyEdits: boolean): Promise<ISpeculationFetchResult> {
+	private async fetchAndContinueOnLengthError(endpoint: IChatEndpoint, promptMessages: Raw.ChatMessage[], speculation: string, request: ICodeMapperRequestInput, resultStream: MappedEditsResponseStream, token: CancellationToken, applyEdits: boolean): Promise<ISpeculationFetchResult> {
 		const allResponseText: string[] = [];
 		let responseLength = 0;
 		let firstTokenTime: number = -1;
