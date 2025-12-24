@@ -42,17 +42,24 @@ function setLocalModeContextKeys() {
 		commands.executeCommand('setContext', 'chatAnonymous', false);
 	};
 
-	// Set immediately
+	// Set immediately and very aggressively in the first few seconds
 	setKeys();
 
-	// Set again after delays to override VS Code's ChatEntitlementService
+	// Rapid fire in first 2 seconds to beat VS Code's ChatEntitlementService
+	setTimeout(setKeys, 50);
+	setTimeout(setKeys, 100);
+	setTimeout(setKeys, 200);
+	setTimeout(setKeys, 300);
 	setTimeout(setKeys, 500);
+	setTimeout(setKeys, 750);
+	setTimeout(setKeys, 1000);
 	setTimeout(setKeys, 1500);
+	setTimeout(setKeys, 2000);
 	setTimeout(setKeys, 3000);
 	setTimeout(setKeys, 5000);
 
-	// Keep setting periodically
-	setInterval(setKeys, 10000);
+	// Keep setting periodically to override any later changes
+	setInterval(setKeys, 5000);
 }
 
 // ###############################################################################################

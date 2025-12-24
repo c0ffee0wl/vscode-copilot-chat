@@ -36,6 +36,17 @@ export class FakeGitHubAuthenticationProvider implements vscode.AuthenticationPr
 	async removeSession(_sessionId: string): Promise<void> {
 		// No-op - we always have a session
 	}
+
+	/**
+	 * Emit a session change event to notify VS Code that sessions are available.
+	 */
+	emitSessionChange(): void {
+		this._onDidChangeSessions.fire({
+			added: [this._session],
+			removed: [],
+			changed: [],
+		});
+	}
 }
 
 /**
@@ -54,10 +65,25 @@ export function registerFakeAuthenticationProvider(context: vscode.ExtensionCont
 			{ supportsMultipleAccounts: false }
 		);
 		console.log('[Local LLM] Successfully registered fake GitHub auth provider');
+
+		// Emit session change to trigger VS Code to re-check auth status
+		setTimeout(() => {
+			provider.emitSessionChange();
+		}, 100);
+
 		return disposable;
 	} catch (e) {
 		// If registration fails (provider already exists), log and return empty disposable
 		console.log('[Local LLM] Could not register fake GitHub auth provider:', e);
+
+		// Even if we can't register, try to trigger a session via getSession
+		// This makes VS Code query sessions and may trigger UI update
+		setTimeout(async () => {
+			try {
+				await vscode.authentication.getSession('github', ['user:email'], { createIfNone: false });
+			} catch { /* ignore */ }
+		}, 100);
+
 		return { dispose: () => {} };
 	}
 }
