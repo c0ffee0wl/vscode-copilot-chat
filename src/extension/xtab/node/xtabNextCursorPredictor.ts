@@ -136,10 +136,16 @@ export class XtabNextCursorPredictor {
 		const url = this.configService.getConfig(ConfigKey.TeamInternal.InlineEditsNextCursorPredictionUrl);
 		const secretKey = this.configService.getConfig(ConfigKey.TeamInternal.InlineEditsNextCursorPredictionApiKey);
 
+		// LOCAL MODE: If no URL is configured, skip prediction (requires specific endpoint)
+		if (!url) {
+			tracer.trace('Next cursor position prediction URL not configured; skipping prediction');
+			return Result.fromString('urlNotConfigured');
+		}
+
 		const endpoint = this.instaService.createInstance(ChatEndpoint, {
 			id: modelName,
 			name: 'nes.nextCursorPosition',
-			urlOrRequestMetadata: url ? url : { type: RequestType.ProxyChatCompletions },
+			urlOrRequestMetadata: url,
 			model_picker_enabled: false,
 			is_chat_default: false,
 			is_chat_fallback: false,

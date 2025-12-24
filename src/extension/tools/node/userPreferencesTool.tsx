@@ -7,6 +7,7 @@ import * as l10n from '@vscode/l10n';
 import { BasePromptElementProps, PromptElement, Raw, SystemMessage, UserMessage } from '@vscode/prompt-tsx';
 import type * as vscode from 'vscode';
 import { ChatFetchResponseType, ChatLocation } from '../../../platform/chat/common/commonTypes';
+import { IEndpointProvider } from '../../../platform/endpoint/common/endpointProvider';
 import { Proxy4oEndpoint } from '../../../platform/endpoint/node/proxy4oEndpoint';
 import { IVSCodeExtensionContext } from '../../../platform/extContext/common/extensionContext';
 import { IFileSystemService } from '../../../platform/filesystem/common/fileSystemService';
@@ -62,10 +63,17 @@ class UpdateUserPreferencesTool implements ICopilotTool<IUpdateUserPreferencesTo
 		@IVSCodeExtensionContext private readonly extensionContext: IVSCodeExtensionContext,
 		@IFileSystemService private readonly fileSystemService: IFileSystemService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IEndpointProvider private readonly endpointProvider: IEndpointProvider,
 	) {
 	}
 
-	private getEndpoint(): Proxy4oEndpoint {
+	private async getEndpoint(): Promise<IChatEndpoint> {
+		// LOCAL MODE: Check if we're using a local endpoint (urlOrRequestMetadata is a string URL)
+		const chatEndpoint = await this.endpointProvider.getChatEndpoint('gpt-4.1');
+		if (typeof chatEndpoint.urlOrRequestMetadata === 'string') {
+			// Local mode - use the local endpoint
+			return chatEndpoint;
+		}
 		return this.instantiationService.createInstance(Proxy4oEndpoint);
 	}
 
@@ -90,7 +98,7 @@ class UpdateUserPreferencesTool implements ICopilotTool<IUpdateUserPreferencesTo
 	}
 
 	private async generateNewContent(currentContent: string, facts: string[], token: CancellationToken): Promise<string> {
-		const endpoint = this.getEndpoint();
+		const endpoint = await this.getEndpoint();
 		const { messages } = await renderPromptElement(this.instantiationService, endpoint, UserPreferenceUpdatePrompt, { facts: facts, currentContent, userPreferenceFile: this.userPreferenceFile }, undefined, token);
 		return this.doFetch(messages, endpoint, currentContent, token);
 	}

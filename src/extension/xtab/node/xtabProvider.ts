@@ -8,6 +8,7 @@ import { FetchStreamSource } from '../../../platform/chat/common/chatMLFetcher';
 import { ChatFetchError, ChatFetchResponseType, ChatLocation } from '../../../platform/chat/common/commonTypes';
 import { ConfigKey, IConfigurationService, XTabProviderId } from '../../../platform/configuration/common/configurationService';
 import { IDiffService } from '../../../platform/diff/common/diffService';
+import { IEndpointProvider } from '../../../platform/endpoint/common/endpointProvider';
 import { ChatEndpoint } from '../../../platform/endpoint/node/chatEndpoint';
 import { createProxyXtabEndpoint } from '../../../platform/endpoint/node/proxyXtabEndpoint';
 import { IIgnoreService } from '../../../platform/ignore/common/ignoreService';
@@ -95,6 +96,7 @@ export class XtabProvider implements IStatelessNextEditProvider {
 		@ILanguageContextProviderService private readonly langCtxService: ILanguageContextProviderService,
 		@ILanguageDiagnosticsService private readonly langDiagService: ILanguageDiagnosticsService,
 		@IIgnoreService private readonly ignoreService: IIgnoreService,
+		@IEndpointProvider private readonly endpointProvider: IEndpointProvider,
 	) {
 		this.userInteractionMonitor = new UserInteractionMonitor(this.configService, this.expService);
 		this.nextCursorPredictor = this.instaService.createInstance(XtabNextCursorPredictor, XtabProvider.computeTokens);
@@ -226,7 +228,7 @@ export class XtabProvider implements IStatelessNextEditProvider {
 
 		const promptOptions = this.determineModelConfiguration(activeDocument);
 
-		const endpoint = this.getEndpoint(promptOptions.modelName);
+		const endpoint = await this.getEndpoint(promptOptions.modelName);
 		logContext.setEndpointInfo(typeof endpoint.urlOrRequestMetadata === 'string' ? endpoint.urlOrRequestMetadata : JSON.stringify(endpoint.urlOrRequestMetadata.type), endpoint.model);
 		telemetryBuilder.setModelName(endpoint.model);
 
@@ -1074,13 +1076,20 @@ export class XtabProvider implements IStatelessNextEditProvider {
 		return { enabled, maxTokens, traitPosition };
 	}
 
-	private getEndpoint(configuredModelName: string | undefined): ChatEndpoint {
+	private async getEndpoint(configuredModelName: string | undefined): Promise<IChatEndpoint> {
 		const url = this.configService.getConfig(ConfigKey.TeamInternal.InlineEditsXtabProviderUrl);
 		const apiKey = this.configService.getConfig(ConfigKey.TeamInternal.InlineEditsXtabProviderApiKey);
 		const hasOverriddenUrlAndApiKey = url !== undefined && apiKey !== undefined;
 
 		if (hasOverriddenUrlAndApiKey) {
 			return this.instaService.createInstance(XtabEndpoint, url, apiKey, configuredModelName);
+		}
+
+		// LOCAL MODE: Check if we're using a local endpoint (urlOrRequestMetadata is a string URL)
+		const chatEndpoint = await this.endpointProvider.getChatEndpoint('gpt-4.1');
+		if (typeof chatEndpoint.urlOrRequestMetadata === 'string') {
+			// Local mode - use the local endpoint for inline edits
+			return chatEndpoint;
 		}
 
 		return createProxyXtabEndpoint(this.instaService, configuredModelName);
