@@ -58,7 +58,8 @@ export class NullAuthenticationService extends Disposable implements IAuthentica
 
 	private createFakeToken(): CopilotToken {
 		const fakeTokenInfo: ExtendedTokenInfo = {
-			token: 'tid=local;exp=9999999999;sku=copilot_enterprise;rt=1;ccr=1;editor_preview_features=1;mcp=1;fcv1=1:local_signature',
+			// ccr=0 disables GitHub code review agent (requires CAPI), uses local review instead
+			token: 'tid=local;exp=9999999999;sku=copilot_enterprise;rt=1;ccr=0;editor_preview_features=1;mcp=1;fcv1=1:local_signature',
 			expires_at: Math.floor(Date.now() / 1000) + 86400 * 365,
 			refresh_in: 86400 * 365,
 			organization_list: [],
